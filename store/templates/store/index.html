@@ -1,0 +1,300 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BookStore | Магазин книг</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="{% static 'store/css/style.css' %}">
+</head>
+<body class="d-flex flex-column min-vh-100">
+
+    <nav class="navbar navbar-expand-lg sticky-top">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="#" onclick="resetCatalog()">
+                <i class="fas fa-book-open me-2"></i>BookStore
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto align-items-center">
+                    <li class="nav-item me-3"><a class="nav-link active" href="#" onclick="resetCatalog()">Каталог</a></li>
+                    <li class="nav-item me-3">
+                        <a class="nav-link position-relative" href="#" onclick="showCart()">
+                            <i class="fas fa-shopping-cart fa-lg"></i>
+                            <span class="d-lg-none ms-2">Корзина</span>
+                            <span id="cart-count" class="position-absolute top-0 start-100 translate-middle badge rounded-pill badge-labirint">0</span>
+                        </a>
+                    </li>
+                    {% if user.is_authenticated %}
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                                <i class="fas fa-user-circle fa-lg me-1"></i> {{ user.username }}
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end border-0 shadow">
+                                <li><a class="dropdown-item" href="#" onclick="showProfile()">Личный кабинет</a></li>
+                                <li><a class="dropdown-item" href="#" onclick="showOrders()">Мои заказы</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item text-danger" href="/logout/">Выйти</a></li>
+                            </ul>
+                        </li>
+                    {% else %}
+                        <li class="nav-item"><a class="btn btn-outline-light btn-sm ms-2" href="#" onclick="showRegisterOverlay()">Регистрация</a></li>
+                        <li class="nav-item"><a class="btn btn-light btn-sm ms-2" href="#" onclick="showLoginOverlay()">Войти</a></li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container py-4 flex-grow-1">
+        <div id="catalog-view">
+            <div class="row">
+                <div class="col-lg-3 mb-4">
+                    <div class="card border-0 shadow-sm mb-4">
+                        <div class="card-header bg-white fw-bold"><i class="fas fa-bars me-2"></i>Категории</div>
+                        <ul class="list-group list-group-flush" id="categories-list"><li class="list-group-item text-center text-muted">Загрузка...</li></ul>
+                    </div>
+                    <div class="card border-0 shadow-sm bg-dark text-white text-center p-4 d-none d-lg-block">
+                        <h5>📚 Читай больше!</h5><p class="small text-white-50">Скидки до 30% на классику</p>
+                    </div>
+                </div>
+                <div class="col-lg-9">
+                    <div class="bg-white p-3 rounded shadow-sm mb-4">
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <div class="input-group">
+                                    <span class="input-group-text bg-white border-end-0"><i class="fas fa-search text-muted"></i></span>
+                                    <input type="text" id="search-input" class="form-control border-start-0 ps-0" placeholder="Я ищу книгу..." onkeyup="handleSearch(event)">
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <select id="sort-select" class="form-select" onchange="applyFilters()">
+                                    <option value="-average_rating">Популярное</option>
+                                    <option value="price">Подешевле</option>
+                                    <option value="-price">Подороже</option>
+                                    <option value="-created_at">Новинки</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3"><button class="btn btn-dark w-100" onclick="applyFilters()">Найти</button></div>
+                        </div>
+                    </div>
+                    <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-4" id="books-container">
+                        <div class="text-center w-100 py-5"><div class="spinner-border text-danger" role="status"></div></div>
+                    </div>
+                    <div id="pagination-container" class="mt-5"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="cart-view" style="display: none;">
+            <div class="d-flex align-items-center mb-4">
+                <h2 class="mb-0 me-auto fw-bold">Корзина</h2>
+                <button class="btn btn-outline-secondary btn-sm" onclick="showCatalog()">← В каталог</button>
+            </div>
+            <div class="row">
+                <div class="col-lg-8" id="cart-container"></div>
+                <div class="col-lg-4">
+                    <div class="card border-0 shadow-sm p-4 sticky-top" style="top: 80px;">
+                        <h4 class="mb-3">Итого:</h4>
+                        <h2 class="text-danger mb-4 fw-bold"><span id="cart-total">0</span> ₽</h2>
+                        <button class="btn btn-danger btn-lg w-100 py-3 fw-bold" onclick="checkout()">Оформить заказ</button>
+                        <p class="text-muted small mt-3 text-center mb-0"><i class="fas fa-shield-alt me-1"></i> Безопасная оплата</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="orders-view" style="display: none;">
+            <div class="d-flex align-items-center mb-4">
+                <h2 class="mb-0 me-auto fw-bold">Мои заказы</h2>
+                <button class="btn btn-outline-secondary btn-sm" onclick="showCatalog()">← В каталог</button>
+            </div>
+            <div id="orders-container"></div>
+        </div>
+
+        <div id="profile-view" style="display: none;">
+            <button class="btn btn-outline-secondary btn-sm mb-4" onclick="showCatalog()">← На главную</button>
+            <div class="row justify-content-center">
+                <div class="col-md-6">
+                    <div class="card border-0 shadow-sm p-4">
+                        <h3 class="mb-4 text-center fw-bold">Личный кабинет</h3>
+                        <div class="mb-3"><label class="form-label text-muted small">Логин</label><input type="text" id="profile-username" class="form-control bg-light" disabled></div>
+                        <div class="mb-3"><label class="form-label text-muted small">Email</label><input type="email" id="profile-email" class="form-control"></div>
+                        <div class="row">
+                            <div class="col-6 mb-3"><label class="form-label text-muted small">Имя</label><input type="text" id="profile-firstname" class="form-control"></div>
+                            <div class="col-6 mb-4"><label class="form-label text-muted small">Фамилия</label><input type="text" id="profile-lastname" class="form-control"></div>
+                        </div>
+                        <button class="btn btn-dark w-100 py-2" onclick="saveProfile()">Сохранить изменения</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="help-view" style="display: none;">
+            <div class="row">
+                <div class="col-md-3 mb-4">
+                    <h4 class="mb-3 fw-bold">Помощь</h4>
+                    <div class="list-group list-group-flush border rounded">
+                        <a href="#" id="link-order" class="list-group-item list-group-item-action help-menu-item" onclick="openHelp('order')">Как сделать заказ</a>
+                        <a href="#" id="link-delivery" class="list-group-item list-group-item-action help-menu-item" onclick="openHelp('delivery')">Доставка и оплата</a>
+                        <a href="#" id="link-return" class="list-group-item list-group-item-action help-menu-item" onclick="openHelp('return')">Возврат товара</a>
+                        <a href="#" id="link-bonus" class="list-group-item list-group-item-action help-menu-item" onclick="openHelp('bonus')">Бонусная программа</a>
+                        <a href="#" id="link-offer" class="list-group-item list-group-item-action help-menu-item" onclick="openHelp('offer')">Публичная оферта</a>
+                    </div>
+                    <button class="btn btn-outline-secondary w-100 mt-3" onclick="showCatalog()">← Вернуться в магазин</button>
+                </div>
+                <div class="col-md-9">
+                    <div class="card border-0 shadow-sm p-4 h-100">
+                        <h2 id="help-title" class="fw-bold mb-4"></h2>
+                        <div id="help-body" class="text-secondary" style="font-size: 1.05rem; line-height: 1.6;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="mt-auto bg-dark text-light py-5">
+        <div class="container">
+            <div class="row">
+                <div class="col-lg-3 col-md-6 mb-4">
+                    <h5 class="text-uppercase mb-3 text-white fw-bold">BookStore</h5>
+                    <p class="small mb-3 text-white-50">Ваш любимый книжный магазин.</p>
+                    <div class="social-icons mt-3">
+                        <a href="data:text/html;charset=utf-8,%3C!DOCTYPE%20html%3E%3Chtml%3E%3Cbody%20style%3D%27display%3Aflex%3Bjustify-content%3Acenter%3Balign-items%3Acenter%3Bheight%3A100vh%3Bfont-family%3Asans-serif%3Bbackground-color%3A%23f0f0f0%3B%27%3E%3Ch1%20style%3D%27font-size%3A3rem%3Btext-align%3Acenter%3Bcolor%3A%23333%3B%27%3E%D0%9D%D0%95%20%D0%9F%D0%90%D0%A7%D0%9A%D0%90%D0%99%D0%A1%D0%AF%20%2C%20%D0%90%20%D0%9B%D0%A3%D0%A7%D0%A8%D0%95%20%D0%9A%D0%A3%D0%9F%D0%98%20%D0%9A%D0%9D%D0%98%D0%93%D0%A3%3C%2Fh1%3E%3C%2Fbody%3E%3C%2Fhtml%3E" target="_blank">
+                            <i class="fab fa-vk"></i>
+                        </a>
+                        <a href="https://t.me/TrololoBot228" target="_blank">
+                            <i class="fab fa-telegram-plane"></i>
+                        </a>
+                        <a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ" target="_blank">
+                            <i class="fab fa-youtube"></i>
+                        </a>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-md-6 mb-4">
+                    <h5 class="text-uppercase mb-3 text-white fw-bold">Каталог</h5>
+                    <ul class="list-unstyled">
+                        <li><a href="javascript:void(0)" onclick="footerAction('')" class="text-white-50 text-decoration-none">Все книги</a></li>
+                        <li><a href="javascript:void(0)" onclick="footerAction('price')" class="text-white-50 text-decoration-none">Книги до 500 ₽</a></li>
+                        <li><a href="javascript:void(0)" onclick="footerAction('-created_at')" class="text-white-50 text-decoration-none">Новинки</a></li>
+                    </ul>
+                </div>
+                <div class="col-lg-3 col-md-6 mb-4">
+                    <h5 class="text-uppercase mb-3 text-white fw-bold">Помощь</h5>
+                    <ul class="list-unstyled">
+                        <li><a href="javascript:void(0)" onclick="openHelp('order')" class="text-white-50 text-decoration-none">Как сделать заказ</a></li>
+                        <li><a href="javascript:void(0)" onclick="openHelp('delivery')" class="text-white-50 text-decoration-none">Доставка и оплата</a></li>
+                    </ul>
+                </div>
+                <div class="col-lg-3 col-md-6 mb-4">
+                    <h5 class="text-uppercase mb-3 text-white fw-bold">Контакты</h5>
+                    <ul class="list-unstyled small text-white-50">
+                        <li class="mb-2"><i class="fas fa-map-marker-alt me-2"></i> г. Бишкек, ул. Арсланова, 10</li>
+                        <li class="mb-2"><i class="fas fa-phone-alt me-2"></i> +996 (706) 66-77-78</li>
+                        <li class="mb-2"><i class="fas fa-envelope me-2"></i> Comtehno@bookstore.kg</li>
+                    </ul>
+                </div>
+            </div>
+            <hr class="border-secondary my-4">
+            <div class="row align-items-center">
+                <div class="col-md-6 text-center text-md-start"><p class="mb-0 text-white-50">&copy; 2025 BookStore.</p></div>
+                <div class="col-md-6 text-center text-md-end"><p class="mb-0 text-white-50">Разработано на Django & Bootstrap 5</p></div>
+            </div>
+        </div>
+    </footer>
+
+    <div class="modal fade" id="bookDetailModal" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header border-0">
+                    <h5 class="modal-title fw-bold" id="modalBookTitle"></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-4 mb-3"><img id="modalBookImage" class="img-fluid rounded w-100 shadow-sm" style="object-fit: cover;"></div>
+                        <div class="col-md-8">
+                            <h4 id="modalBookAuthor" class="text-muted"></h4>
+                            <div id="modalBookRatingBlock" class="mb-2"></div> 
+                            <h2 class="text-danger fw-bold my-3"><span id="modalBookPrice"></span> ₽</h2>
+                            <p id="modalBookDesc" class="text-secondary"></p>
+                            <button id="modalAddToCartBtn" class="btn btn-primary w-100 py-2 fw-bold">В КОРЗИНУ</button>
+                        </div>
+                    </div>
+                    <hr class="my-4">
+                    <div class="row">
+                        <div class="col-md-4 mb-4">
+                            <div class="bg-light p-3 rounded">
+                                <div class="text-center mb-3">
+                                    <div class="display-4 fw-bold" id="modalBigRating">0.0</div>
+                                    <div id="modalBigStars" class="small text-warning"></div>
+                                    <div class="small text-muted"><span id="reviewsCount">0</span> отзывов</div>
+                                </div>
+                                <div id="ratingBars"></div>
+                            </div>
+                        </div>
+                        <div class="col-md-8">
+                            <h5 class="fw-bold mb-3">Отзывы покупателей</h5>
+                            <div id="reviewsList" class="mb-4" style="max-height: 400px; overflow-y: auto;"></div>
+                            {% if user.is_authenticated %}
+                            <div class="card border-0 shadow-sm bg-white">
+                                <div class="card-body">
+                                    <h6 class="fw-bold">Написать отзыв:</h6>
+                                    <div class="d-flex mb-2">
+                                        <select id="newReviewRating" class="form-select w-auto me-2">
+                                            <option value="5">⭐⭐⭐⭐⭐ (5)</option>
+                                            <option value="4">⭐⭐⭐⭐ (4)</option>
+                                            <option value="3">⭐⭐⭐ (3)</option>
+                                            <option value="2">⭐⭐ (2)</option>
+                                            <option value="1">⭐ (1)</option>
+                                        </select>
+                                    </div>
+                                    <textarea id="newReviewText" class="form-control mb-2" rows="3" placeholder="Что вам понравилось?"></textarea>
+                                    <button class="btn btn-dark btn-sm" onclick="submitReview()">Опубликовать</button>
+                                </div>
+                            </div>
+                            {% else %}
+                                <div class="alert alert-warning"><a href="#" onclick="showLoginOverlay()">Войдите</a>, чтобы оставить отзыв.</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="login-overlay" class="auth-overlay" style="display: none;">
+        <div class="auth-card">
+            <div class="text-end"><button type="button" class="btn-close btn-close-white" onclick="hideAllOverlays()"></button></div>
+            <h2 class="text-center mb-4 text-white fw-bold">Вход</h2>
+            <form id="login-form">
+                <div class="mb-3"><input type="text" id="login-username" class="form-control custom-input" placeholder="Логин" required></div>
+                <div class="mb-3"><input type="password" id="login-password" class="form-control custom-input" placeholder="Пароль" required></div>
+                <button type="submit" class="btn btn-custom w-100 py-2">Войти</button>
+            </form>
+            <div class="text-center mt-4"><span class="text-white-50">Нет аккаунта?</span><a href="#" class="text-white fw-bold text-decoration-none ms-1" onclick="switchToRegister()">Создать</a></div>
+        </div>
+    </div>
+
+    <div id="register-overlay" class="auth-overlay" style="display: none;">
+        <div class="auth-card">
+            <div class="text-end"><button type="button" class="btn-close btn-close-white" onclick="hideAllOverlays()"></button></div>
+            <h2 class="text-center mb-4 text-white fw-bold">Регистрация</h2>
+            <form id="register-form">
+                <div class="mb-3"><input type="text" id="reg-username-new" class="form-control custom-input" placeholder="Придумайте логин" required></div>
+                <div class="mb-3"><input type="password" id="reg-password-new" class="form-control custom-input" placeholder="Придумайте пароль" required></div>
+                <button type="submit" class="btn btn-custom w-100 py-2">Зарегистрироваться</button>
+            </form>
+            <div class="text-center mt-4"><span class="text-white-50">Уже есть аккаунт?</span><a href="#" class="text-white fw-bold text-decoration-none ms-1" onclick="switchToLogin()">Войти</a></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{% static 'store/js/app.js' %}"></script>
+</body>
+</html>
